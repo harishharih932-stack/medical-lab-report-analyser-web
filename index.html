@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediScan - AI Lab Report Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+    <nav class="bg-white border-b px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-2 text-blue-600 font-bold text-2xl">
+            <span class="bg-blue-600 text-white p-1 rounded">🔬</span> MediScan
+        </div>
+        <div class="flex gap-4 items-center text-sm">
+            <input id="apiKey" type="password" placeholder="Paste Gemini API Key" class="border p-2 rounded w-64">
+            <button onclick="saveKey()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save Key</button>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto py-12 px-6">
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Understand your lab reports in seconds.</h1>
+            <p class="text-gray-600 text-lg">Upload your medical reports (PDF/Images) and get a plain English summary using Gemini AI.</p>
+        </div>
+
+        <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center bg-white cursor-pointer hover:border-blue-500 transition shadow-sm">
+            <div class="text-5xl mb-4">📋</div>
+            <p class="text-xl font-semibold text-gray-700">Click to upload or drag & drop</p>
+            <p class="text-gray-500 mt-2">Supports JPG, PNG, PDF</p>
+            <input type="file" id="fileInput" class="hidden" accept=".jpg,.jpeg,.png,.pdf">
+        </div>
+
+        <div id="loading" class="hidden mt-8 text-center text-blue-600 animate-pulse font-bold text-lg">
+            ⏳ Analyzing your report... please wait...
+        </div>
+
+        <div id="results" class="hidden mt-12 space-y-6">
+            <!-- Results will be injected here -->
+        </div>
+
+        <div class="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm italic">
+            ⚠️ Disclaimer: This is an AI tool and not a substitute for professional medical advice. Always consult a doctor.
+        </div>
+    </main>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        
+        if(localStorage.getItem('gemini_key')) {
+            document.getElementById('apiKey').value = localStorage.getItem('gemini_key');
+        }
+
+        function saveKey() {
+            const key = document.getElementById('apiKey').value;
+            localStorage.setItem('gemini_key', key);
+            alert('API Key Saved Locally!');
+        }
+
+        dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => handleUpload(e.target.files[0]);
+
+        async function handleUpload(file) {
+            const key = localStorage.getItem('gemini_key');
+            if(!key) return alert('Please enter and save your Gemini API Key first.');
+            if(!file) return;
+
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('results').innerHTML = '';
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('apiKey', key);
+
+            try {
+                const response = await fetch('/api/analyze', { method: 'POST', body: formData });
+                const data = await response.json();
+                renderResults(data);
+            } catch (err) {
+                alert('Analysis failed. Check your API key or file format.');
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+
+        function renderResults(data) {
+            const res = document.getElementById('results');
+            res.classList.remove('hidden');
+            
+            if(data.error) {
+                res.innerHTML = `<div class="bg-red-50 p-4 border border-red-200 text-red-700 rounded">${data.error}</div>`;
+                return;
+            }
+
+            res.innerHTML = `
+                <div class="bg-blue-50 p-6 rounded-xl border border-blue-200 shadow-sm">
+                    <h3 class="font-bold text-blue-800 text-lg flex items-center gap-2 mb-2">📋 Summary</h3>
+                    <p class="text-gray-700 text-lg leading-relaxed">${data.summary}</p>
+                </div>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-green-50 p-6 rounded-xl border border-green-200 shadow-sm">
+                        <h3 class="font-bold text-green-800 mb-3 flex items-center gap-2">✅ Normal Values</h3>
+                        <ul class="space-y-2">${data.normal_values.map(v => `<li class="text-gray-700 text-sm">• ${v}</li>`).join('')}</ul>
+                    </div>
+                    <div class="bg-red-50 p-6 rounded-xl border border-red-200 shadow-sm">
+                        <h3 class="font-bold text-red-800 mb-3 flex items-center gap-2">🔴 Abnormal Values</h3>
+                        <ul class="space-y-2">${data.abnormal_values.map(v => `<li class="text-gray-700 text-sm">• ${v}</li>`).join('')}</ul>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 p-6 rounded-xl border border-amber-200 shadow-sm">
+                    <h3 class="font-bold text-amber-800 mb-3 flex items-center gap-2">🦠 Possible Conditions</h3>
+                    <ul class="space-y-2">${data.possible_conditions.map(v => `<li class="text-gray-700 text-sm">• ${v}</li>`).join('')}</ul>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2">💊 Recommendations</h3>
+                    <ul class="space-y-2 text-gray-700">${data.recommendations.map(v => `<li class="text-sm">• ${v}</li>`).join('')}</ul>
+                </div>
+            `;
+            res.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
