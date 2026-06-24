@@ -1,8 +1,9 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from google import genai
 from google.genai import types
+from typing import Optional
 import re
 import json
 import os
@@ -17,16 +18,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# SECURITY: never hardcode API keys in source code (especially before pushing to GitHub).
-# Always set GEMINI_API_KEY as an environment variable on your server / hosting platform.
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError(
-        "GEMINI_API_KEY environment variable is not set. "
-        "Set it before starting the server, e.g.: export GEMINI_API_KEY=your_key_here"
-    )
-
-client = genai.Client(api_key=GEMINI_API_KEY)
+# Optional fallback key if you ever want a server-wide default.
+# With the "each user pastes their own key" setup, this can stay unset.
+DEFAULT_GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 SYSTEM_PROMPT = """You are a medical lab report analyzer. The user will upload an image or PDF of a medical lab report.
 Your job is to carefully analyze it and return a JSON response (and ONLY JSON, no markdown, no extra text) in this exact format:
@@ -54,8 +48,17 @@ async def root():
 
 
 @app.post("/api/analyze")
-async def analyze_report(file: UploadFile = File(...)):
+async def analyze_report(file: UploadFile = File(...), x_gemini_key: Optional[str] = Header(None)):
     try:
+        api_key = x_gemini_key or DEFAULT_GEMINI_API_KEY
+        if not api_key:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "No Gemini API key provided. Please paste your API key in the box above."},
+            )
+
+        client = genai.Client(api_key=api_key)
+
         mime_type = file.content_type
 
         if mime_type not in ALLOWED_MIME_TYPES:
@@ -89,4 +92,10 @@ async def analyze_report(file: UploadFile = File(...)):
             content={"error": "Could not parse the AI's response. Please try again."},
         )
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        error_str = str(e)
+        if "API_KEY_INVALID" in error_str or "API key not valid" in error_str:
+            return JSONResponse(
+                status_code=401,
+                content={"error": "That Gemini API key looks invalid. Please check and paste it again."},
+            )
+        return JSONResponse(status_code=500, content={"error": error_str})
