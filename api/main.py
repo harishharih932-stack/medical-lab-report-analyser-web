@@ -53,6 +53,11 @@ async def analyze(file: UploadFile = File(...), apiKey: str = Form(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+from fastapi.responses import FileResponse
+import os
+
 @app.get("/")
 def home():
-    return {"message": "MediScan API is running"}
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "..", "index.html")
+    )
