@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Header
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from google import genai
@@ -44,7 +44,9 @@ ALLOWED_MIME_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "app
 
 @app.get("/")
 async def root():
-    return {"message": "MediScan API is running"}
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "..", "index.html")
+    )
 
 
 @app.post("/api/analyze")
