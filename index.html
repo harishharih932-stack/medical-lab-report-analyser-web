@@ -3,124 +3,256 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediScan - AI Lab Report Analyzer</title>
+    <title>MediScan · Medical Lab Report Analyzer</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans">
-    <nav class="bg-white border-b px-6 py-4 flex justify-between items-center">
-        <div class="flex items-center gap-2 text-blue-600 font-bold text-2xl">
-            <span class="bg-blue-600 text-white p-1 rounded">🔬</span> MediScan
+<body class="bg-gray-50 min-h-screen">
+    <nav class="bg-white border-b border-gray-200 py-4 px-6 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="bg-blue-600 text-white p-2 rounded-lg text-xl">🔬</div>
+            <h1 class="text-2xl font-bold text-blue-600">MediScan</h1>
         </div>
-        <div class="flex gap-4 items-center text-sm">
-            <input id="apiKey" type="password" placeholder="Paste Gemini API Key" class="border p-2 rounded w-64">
-            <button onclick="saveKey()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save Key</button>
-        </div>
+        <span class="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded border border-gray-200">Powered by Gemini AI</span>
     </nav>
 
-    <main class="max-w-4xl mx-auto py-12 px-6">
+    <!-- API Key Help Banner -->
+    <div class="max-w-4xl mx-auto px-4 mt-6">
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-5 text-sm">
+            <h3 class="font-bold mb-2 text-base text-blue-900">🔑 First time here? You need a free Gemini API key</h3>
+            <p class="text-gray-700 mb-3">
+                This app uses Google's Gemini AI to read your report, so it needs a "key" (like a password) to talk to Google's AI.
+                Don't worry — it's <strong>free</strong> and takes less than 2 minutes to get. Follow these steps:
+            </p>
+            <ol class="list-decimal ml-5 space-y-2 text-gray-800">
+                <li>
+                    Open Google AI Studio by clicking this link:
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer"
+                       class="text-blue-600 font-semibold underline hover:text-blue-800">
+                        aistudio.google.com/app/apikey
+                    </a>
+                </li>
+                <li>Sign in using any normal Google account (same one you use for Gmail).</li>
+                <li>On that page, click the blue button that says <strong>"Create API key"</strong>.</li>
+                <li>A long code (letters + numbers) will appear — that is your API key.</li>
+                <li>Click the small copy icon next to it to copy the key.</li>
+                <li>Come back to this app and paste that key wherever it asks for the API key.</li>
+            </ol>
+            <p class="text-gray-500 mt-3 text-xs">
+                ⚠️ Treat this key like a password — don't share it publicly or post it on the internet. If you think it's leaked, just create a new one on the same page.
+            </p>
+        </div>
+    </div>
+
+    <main class="max-w-4xl mx-auto py-12 px-4">
         <div class="text-center mb-12">
-            <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Understand your lab reports in seconds.</h1>
-            <p class="text-gray-600 text-lg">Upload your medical reports (PDF/Images) and get a plain English summary using Gemini AI.</p>
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">Understand your lab report instantly</h2>
+            <p class="text-gray-600">Upload any medical lab report — blood, urine, or more. Get a clear, plain-English analysis in seconds.</p>
         </div>
 
-        <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center bg-white cursor-pointer hover:border-blue-500 transition shadow-sm">
-            <div class="text-5xl mb-4">📋</div>
-            <p class="text-xl font-semibold text-gray-700">Click to upload or drag & drop</p>
-            <p class="text-gray-500 mt-2">Supports JPG, PNG, PDF</p>
-            <input type="file" id="fileInput" class="hidden" accept=".jpg,.jpeg,.png,.pdf">
+        <div id="upload-zone" class="bg-white border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer hover:border-blue-500 transition-colors">
+            <input type="file" id="file-input" class="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf">
+            <div class="text-5xl mb-4 text-gray-400">📋</div>
+            <p class="text-lg font-semibold text-gray-700">Click to browse your report</p>
+            <p class="text-sm text-gray-500 mt-2">Supports JPG · PNG · PDF</p>
         </div>
 
-        <div id="loading" class="hidden mt-8 text-center text-blue-600 animate-pulse font-bold text-lg">
-            ⏳ Analyzing your report... please wait...
+        <div id="file-preview" class="hidden mt-6 bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <div id="file-icon" class="text-3xl">📄</div>
+                <div>
+                    <p id="file-name" class="font-semibold text-gray-900"></p>
+                    <p id="file-size" class="text-sm text-gray-500"></p>
+                </div>
+            </div>
+            <button id="remove-file" class="text-gray-400 hover:text-red-500 text-xl">✕</button>
+        </div>
+
+        <button id="analyze-btn" disabled class="w-full mt-6 bg-blue-600 text-white font-bold py-4 rounded-lg text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors">
+            Analyze Report →
+        </button>
+
+        <div id="loader" class="hidden mt-8 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mb-4"></div>
+            <p class="text-blue-600 font-semibold">Analyzing your report… Please wait.</p>
+            <p class="text-gray-500 text-sm mt-1">This usually takes 10–20 seconds</p>
+        </div>
+
+        <div id="error-box" class="hidden mt-6 bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-start space-x-3">
+            <span>⚠️</span>
+            <p id="error-message"></p>
         </div>
 
         <div id="results" class="hidden mt-12 space-y-6">
-            <!-- Results will be injected here -->
-        </div>
+            <div class="flex items-center justify-between">
+                <h3 class="text-2xl font-bold text-gray-900">Analysis Results</h3>
+                <button id="new-report" class="bg-blue-50 text-blue-600 px-4 py-2 rounded font-semibold text-sm hover:bg-blue-100">+ New Report</button>
+            </div>
 
-        <div class="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm italic">
-            ⚠️ Disclaimer: This is an AI tool and not a substitute for professional medical advice. Always consult a doctor.
+            <div id="results-container" class="space-y-4">
+                <!-- Cards will be injected here -->
+            </div>
+
+            <div class="bg-amber-50 border border-amber-200 p-4 rounded-lg text-amber-800 text-sm flex items-start space-x-3">
+                <span>⚠️</span>
+                <p><strong>Medical Disclaimer:</strong> This analysis is generated by AI and is for informational purposes only. It is NOT a substitute for professional medical advice. Always consult a qualified doctor.</p>
+            </div>
         </div>
     </main>
 
+    <footer class="border-t border-gray-200 py-6 text-center text-gray-500 text-sm">
+        MediScan · AI-powered lab report analysis · Not a substitute for professional medical advice
+    </footer>
+
     <script>
-        const fileInput = document.getElementById('fileInput');
-        const dropZone = document.getElementById('dropZone');
-        
-        if(localStorage.getItem('gemini_key')) {
-            document.getElementById('apiKey').value = localStorage.getItem('gemini_key');
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('file-input');
+        const filePreview = document.getElementById('file-preview');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+        const fileIcon = document.getElementById('file-icon');
+        const removeFile = document.getElementById('remove-file');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const loader = document.getElementById('loader');
+        const results = document.getElementById('results');
+        const resultsContainer = document.getElementById('results-container');
+        const errorBox = document.getElementById('error-box');
+        const errorMessage = document.getElementById('error-message');
+        const newReportBtn = document.getElementById('new-report');
+
+        let selectedFile = null;
+
+        uploadZone.onclick = () => fileInput.click();
+
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        };
+
+        function handleFile(file) {
+            selectedFile = file;
+            fileName.textContent = file.name;
+            fileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+            fileIcon.textContent = file.type === 'application/pdf' ? '📑' : '🖼️';
+            
+            uploadZone.classList.add('hidden');
+            filePreview.classList.remove('hidden');
+            analyzeBtn.disabled = false;
+            errorBox.classList.add('hidden');
         }
 
-        function saveKey() {
-            const key = document.getElementById('apiKey').value;
-            localStorage.setItem('gemini_key', key);
-            alert('API Key Saved Locally!');
+        removeFile.onclick = () => {
+            reset();
+        };
+
+        newReportBtn.onclick = () => {
+            reset();
+        };
+
+        function reset() {
+            selectedFile = null;
+            fileInput.value = '';
+            uploadZone.classList.remove('hidden');
+            filePreview.classList.add('hidden');
+            analyzeBtn.disabled = true;
+            results.classList.add('hidden');
+            errorBox.classList.add('hidden');
+            loader.classList.add('hidden');
         }
 
-        dropZone.onclick = () => fileInput.click();
-        fileInput.onchange = (e) => handleUpload(e.target.files[0]);
+        analyzeBtn.onclick = async () => {
+            if (!selectedFile) return;
 
-        async function handleUpload(file) {
-            const key = localStorage.getItem('gemini_key');
-            if(!key) return alert('Please enter and save your Gemini API Key first.');
-            if(!file) return;
-
-            document.getElementById('loading').classList.remove('hidden');
-            document.getElementById('results').classList.add('hidden');
-            document.getElementById('results').innerHTML = '';
+            analyzeBtn.disabled = true;
+            loader.classList.remove('hidden');
+            results.classList.add('hidden');
+            errorBox.classList.add('hidden');
 
             const formData = new FormData();
-            formData.append('file', file);
-            formData.append('apiKey', key);
+            formData.append('file', selectedFile);
 
             try {
-                const response = await fetch('/api/analyze', { method: 'POST', body: formData });
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
                 const data = await response.json();
-                renderResults(data);
+
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    showResults(data);
+                }
             } catch (err) {
-                alert('Analysis failed. Check your API key or file format.');
+                showError('Failed to connect to server: ' + err.message);
             } finally {
-                document.getElementById('loading').classList.add('hidden');
+                loader.classList.add('hidden');
+                analyzeBtn.disabled = false;
             }
+        };
+
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorBox.classList.remove('hidden');
         }
 
-        function renderResults(data) {
-            const res = document.getElementById('results');
-            res.classList.remove('hidden');
+        function showResults(data) {
+            resultsContainer.innerHTML = '';
             
-            if(data.error) {
-                res.innerHTML = `<div class="bg-red-50 p-4 border border-red-200 text-red-700 rounded">${data.error}</div>`;
-                return;
-            }
+            const sections = [
+                { key: 'summary', title: '📋 Report Summary', color: 'blue', bg: 'blue' },
+                { key: 'normal_values', title: '✅ Normal Values', color: 'green', bg: 'green' },
+                { key: 'abnormal_values', title: '🔴 Abnormal Values', color: 'red', bg: 'red' },
+                { key: 'possible_conditions', title: '🦠 Possible Conditions', color: 'amber', bg: 'amber' },
+                { key: 'recommendations', title: '💊 Health Advice', color: 'blue', bg: 'blue' }
+            ];
 
-            res.innerHTML = `
-                <div class="bg-blue-50 p-6 rounded-xl border border-blue-200 shadow-sm">
-                    <h3 class="font-bold text-blue-800 text-lg flex items-center gap-2 mb-2">📋 Summary</h3>
-                    <p class="text-gray-700 text-lg leading-relaxed">${data.summary}</p>
-                </div>
+            sections.forEach(s => {
+                const val = data[s.key];
+                if (!val) return;
+
+                const card = document.createElement('div');
+                card.className = 'bg-white border border-gray-200 rounded-lg overflow-hidden';
                 
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div class="bg-green-50 p-6 rounded-xl border border-green-200 shadow-sm">
-                        <h3 class="font-bold text-green-800 mb-3 flex items-center gap-2">✅ Normal Values</h3>
-                        <ul class="space-y-2">${data.normal_values.map(v => `<li class="text-gray-700 text-sm">• ${v}</li>`).join('')}</ul>
-                    </div>
-                    <div class="bg-red-50 p-6 rounded-xl border border-red-200 shadow-sm">
-                        <h3 class="font-bold text-red-800 mb-3 flex items-center gap-2">🔴 Abnormal Values</h3>
-                        <ul class="space-y-2">${data.abnormal_values.map(v => `<li class="text-gray-700 text-sm">• ${v}</li>`).join('')}</ul>
-                    </div>
-                </div>
+                const header = document.createElement('div');
+                const bgClasses = {
+                    blue: 'bg-blue-50 text-blue-700',
+                    green: 'bg-green-50 text-green-700',
+                    red: 'bg-red-50 text-red-700',
+                    amber: 'bg-amber-50 text-amber-700'
+                };
+                header.className = `px-4 py-3 font-bold ${bgClasses[s.bg]}`;
+                header.textContent = s.title;
+                card.appendChild(header);
 
-                <div class="bg-amber-50 p-6 rounded-xl border border-amber-200 shadow-sm">
-                    <h3 class="font-bold text-amber-800 mb-3 flex items-center gap-2">🦠 Possible Conditions</h3>
-                    <ul class="space-y-2">${data.possible_conditions.map(v => `<li class="text-gray-700 text-sm">• ${v}</li>`).join('')}</ul>
-                </div>
+                const body = document.createElement('div');
+                body.className = 'p-4 text-gray-700';
 
-                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2">💊 Recommendations</h3>
-                    <ul class="space-y-2 text-gray-700">${data.recommendations.map(v => `<li class="text-sm">• ${v}</li>`).join('')}</ul>
-                </div>
-            `;
-            res.scrollIntoView({ behavior: 'smooth' });
+                if (Array.isArray(val)) {
+                    const ul = document.createElement('ul');
+                    ul.className = 'space-y-2';
+                    val.forEach(item => {
+                        const li = document.createElement('li');
+                        li.className = 'flex items-start space-x-2';
+                        li.innerHTML = `<span class="text-${s.color}-500 mt-1">•</span><span>${item}</span>`;
+                        ul.appendChild(li);
+                    });
+                    body.appendChild(ul);
+                } else {
+                    body.textContent = val;
+                }
+
+                card.appendChild(body);
+                resultsContainer.appendChild(card);
+            });
+
+            results.classList.remove('hidden');
+            window.scrollTo({ top: results.offsetTop - 20, behavior: 'smooth' });
         }
     </script>
 </body>
