@@ -28,7 +28,7 @@ If not a medical report, return {"error": "Invalid report"}.
 """
 
 @app.post("/api/analyze")
-async function analyze(file: UploadFile = File(...), apiKey: str = Form(...)):
+async def analyze(file: UploadFile = File(...), apiKey: str = Form(...)):
     try:
         client = genai.Client(api_key=apiKey)
         content = await file.read()
